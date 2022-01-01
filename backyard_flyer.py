@@ -25,12 +25,6 @@ class BackyardFlyer(Drone):
         self.all_waypoints = []
         self.in_mission = True
         self.check_state = {}
-        self.square_side_length = 7.0
-        self.on_the_way = True
-        self.go_north = False
-        self.go_east = False
-        self.go_south = False
-        self.go_west = False
 
         # initial state
         self.flight_state = States.MANUAL
@@ -48,22 +42,15 @@ class BackyardFlyer(Drone):
         """
         if self.flight_state == States.TAKEOFF:
             if 1.05 * self.target_position[2] > abs(self.local_position[2]) > 0.95 * self.target_position[2]:
+                self.all_waypoints = self.calculate_box ()
                 self.waypoint_transition()
-            if (0.05 > self.local_position[0] > -0.05) and (0.05 > self.local_position[1] > -0.05):       #Above Home position
-                print(self.local_position[:])
-                self.go_north = True
-            elif ((self.square_side_length + 0.05) > self.local_position[0] > (self.square_side_length - 0.05)) and (abs(self.local_position[1]) < 0.05):       #at the North position
-                self.go_north = False
-                self.go_east = True
-            elif ((self.square_side_length + 0.05) > self.local_position[0] > (self.square_side_length - 0.05) and (self.square_side_length + 0.05) > self.local_position[1] > (self.square_side_length - 0.05)):       #at the North-East position
-                self.go_east = False
-                self.go_south = True
-            elif (abs(self.local_position[0]) < 0.05) and ((self.square_side_length + 0.05) > self.local_position[1] > (self.square_side_length - 0.05)):       #at the East position
-                self.go_south = False
-                self.go_west = True
         elif self.flight_state == States.WAYPOINT:
-            self.disarming_transition()
-
+            if (0.1 > abs(self.target_position[0] - self.local_position[0])) and (0.1 > abs(self.target_position[1] - self.local_position[1])):       #Above the target position
+                if len(self.all_waypoints) > 0:
+                    print(self.local_position[:])
+                    self.waypoint_transition()
+                else:
+                    self.landing_transition()
 
     def velocity_callback(self):
         """
@@ -71,7 +58,9 @@ class BackyardFlyer(Drone):
 
         This triggers when `MsgID.LOCAL_VELOCITY` is received and self.local_velocity contains new data
         """
-        pass
+        if self.flight_state == States.LANDING:
+            if ((self.global_position[2] - self.global_home[2] < 0.1) and abs(self.local_position[2]) < 0.01):
+                self.disarming_transition()
 
     def state_callback(self):
         """
@@ -84,38 +73,20 @@ class BackyardFlyer(Drone):
                 self.arming_transition()
             elif self.flight_state == States.ARMING:
                 self.takeoff_transition()
-            #elif self.flight_state == States.TAKEOFF:
-            #    self.waypoint_transition()
-            #elif self.flight_state == States.WAYPOINT:  #Ckecking the need for position & velocity callbacks
-            #    self.disarming_transition()
             elif self.flight_state == States.DISARMING:
                 if self.disarm:
                     self.manual_transition()
-        #pass
 
     def calculate_box(self):
         """TODO: Fill out this method
 
         1. Return waypoints to fly a box
         """
-        print("Navigating...")
-        if self.go_north:
-            print("Navigating to 1st point...")
-            print(self.local_position[0], self.local_position[1], -1.0 * self.local_position[2])
-            self.next_point = [self.square_side_length, 0, self.target_altitude]        #to the North
-        elif self.go_east:
-            print("Navigating to 2nd point...")
-            self.next_point = [self.square_side_length, self.square_side_length, self.target_altitude]        #to the North-East
-        elif self.go_south:
-            print("Navigating to 3rd point...")
-            self.next_point = [0, self.square_side_length, self.target_altitude]        #to the East
-        elif self.go_west:
-            print("Navigating to above home...")
-            self.next_point = [0, 0, self.target_altitude]        #to above the Home
-            self.on_the_way = False
-        calculated_position = self.next_point
+        self.square_side_length = 7.0
+        calculated_position = [[self.square_side_length, 0, self.target_altitude],
+            [self.square_side_length, self.square_side_length, self.target_altitude],
+            [0, self.square_side_length, self.target_altitude], [0, 0, self.target_altitude]]
         return calculated_position
-        #pass
 
     def arming_transition(self):
         """TODO: Fill out this method
@@ -128,7 +99,8 @@ class BackyardFlyer(Drone):
         print("arming transition")
         self.take_control()
         self.arm()
-        self.set_home_position(self.global_position[0], self.global_position[1], self.global_position[2])
+        self.set_home_position(self.global_position[0], self.global_position[1],
+                                                        self.global_position[2])
         print(self.global_position)
         self.flight_state = States.ARMING
 
@@ -152,9 +124,9 @@ class BackyardFlyer(Drone):
         2. Transition to WAYPOINT state
         """
         print("waypoint transition")
-        while self.on_the_way:
-            self.target_position = self.calculate_box()
-            self.cmd_position(self.target_position[0], self.target_position[1],
+        self.target_position = self.all_waypoints.pop(0)
+        print("Navigating...")
+        self.cmd_position(self.target_position[0], self.target_position[1],
                                                     self.target_position[2], 0)
         self.flight_state = States.WAYPOINT
 
