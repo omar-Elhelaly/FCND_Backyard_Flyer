@@ -40,6 +40,7 @@ class BackyardFlyer(Drone):
 
         This triggers when `MsgID.LOCAL_POSITION` is received and self.local_position contains new data
         """
+        #Credits to "Neha V" for her help on ask a mintor
         if self.flight_state == States.TAKEOFF:
             if 1.05 * self.target_position[2] > abs(self.local_position[2]) > 0.95 * self.target_position[2]:
                 self.all_waypoints = self.calculate_box ()
@@ -58,6 +59,7 @@ class BackyardFlyer(Drone):
 
         This triggers when `MsgID.LOCAL_VELOCITY` is received and self.local_velocity contains new data
         """
+        #learned from "Phases of flight" concept in the "Backyard Flyer" Project
         if self.flight_state == States.LANDING:
             if ((self.global_position[2] - self.global_home[2] < 0.1) and abs(self.local_position[2]) < 0.01):
                 self.disarming_transition()
@@ -82,6 +84,7 @@ class BackyardFlyer(Drone):
 
         1. Return waypoints to fly a box
         """
+        #Credits to "Neha V" for her help on ask a mintor
         self.square_side_length = 7.0
         calculated_position = [[self.square_side_length, 0, self.target_altitude],
             [self.square_side_length, self.square_side_length, self.target_altitude],
@@ -123,6 +126,7 @@ class BackyardFlyer(Drone):
         1. Command the next waypoint position
         2. Transition to WAYPOINT state
         """
+        #Credits to "Neha V" for her help on ask a mintor
         print("waypoint transition")
         self.target_position = self.all_waypoints.pop(0)
         print("Navigating...")
